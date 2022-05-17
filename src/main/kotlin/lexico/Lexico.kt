@@ -210,13 +210,8 @@ class Lexico(fileName: String) {
     private fun isOpenPar(c: Char): Boolean = c == '('
     private fun isClosePar(c: Char): Boolean = c == ')'
 
-    private fun getNextChar(): Char {
-        val c = content!![position]
-        return c
-    }
-
+    private fun getNextChar(): Char = content!![position]
     private fun isEndOfFile(): Boolean = position == content!!.size
-
     private fun backToPreviousChar() = position--
 
 }

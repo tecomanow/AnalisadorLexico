@@ -1,8 +1,8 @@
 package lexico
 
 class Token(
-    val type : Int,
-    val text : String
+    private val type : Int,
+    private val text : String
 ) {
 
     companion object {
