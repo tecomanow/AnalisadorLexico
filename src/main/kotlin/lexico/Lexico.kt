@@ -3,13 +3,20 @@ package lexico
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
+import kotlin.math.sqrt
 
 class Lexico(fileName: String) {
 
     private var content: CharArray? = null
     private var position = 0
 
+    private val reserveTable = HashMap<String, Token>()
+    private val symbolTable = HashMap<String, Token>()
+
     init {
+
+        reserve((Token(Token.TK_LOG, "log")))
+
         try {
             val txtContent = String(Files.readAllBytes(Paths.get(fileName)), StandardCharsets.UTF_8)
             content = txtContent.toCharArray()
@@ -47,20 +54,28 @@ class Lexico(fileName: String) {
                         isSpace(currentChar) -> {
                             state = 0
                         }
-                        isArithmeticOperator(currentChar) -> {
+                        isBigger(currentChar) -> {
                             state = 5
+                            textName += currentChar
+                        }
+                        isLess(currentChar) -> {
+                            state = 16
                             textName += currentChar
                         }
                         isUnaryOperator(currentChar) -> {
                             state = 6
                             textName += currentChar
                         }
-                        isRelationalOperator(currentChar) -> {
+                        isEqualSimbol(currentChar) -> {
                             state = 11
                             textName += currentChar
                         }
-                        isLogicOperator(currentChar) -> {
-                            state = 13
+                        isAndOperator(currentChar) -> {
+                            state = 18
+                            textName += currentChar
+                        }
+                        isOrOperator(currentChar) -> {
+                            state = 19
                             textName += currentChar
                         }
                         isOpenPar(currentChar) -> {
@@ -69,6 +84,18 @@ class Lexico(fileName: String) {
                         }
                         isClosePar(currentChar) -> {
                             state = 9
+                            textName += currentChar
+                        }
+                        isPlusOperator(currentChar) -> {
+                            state = 20
+                            textName += currentChar
+                        }
+                        isSubOperator(currentChar) -> {
+                            state = 21
+                            textName += currentChar
+                        }
+                        isArithmeticOperator(currentChar) -> {
+                            state = 23
                             textName += currentChar
                         }
                         else -> {
@@ -82,29 +109,43 @@ class Lexico(fileName: String) {
                         state = 1
                         textName += currentChar
                     } else if (isSpace(currentChar)
-                        || isArithmeticOperator(currentChar)
-                        || isLogicOperator(currentChar)
-                        || isRelationalOperator(currentChar)
+                        || isBigger(currentChar)
+                        || isLess(currentChar)
+                        || isPlusOperator(currentChar)
+                        || isSubOperator(currentChar)
+                        || isAndOperator(currentChar)
+                        || isOrOperator(currentChar)
                         || isUnaryOperator(currentChar)
                         || isOpenPar(currentChar)
-                        || isClosePar(currentChar)) {
+                        || isClosePar(currentChar)
+                        || isArithmeticOperator(currentChar)
+                        || isEqualSimbol(currentChar)
+                    ) {
                         state = 2
                     }
                 }
 
                 2 -> {
                     backToPreviousChar()
-                    return Token(
-                        Token.TK_IDENTIFIER,
-                        textName
-                    )
+                    var t: Token? = reserveTable[textName]
+                    t?.let { return t }
+
+                    t = symbolTable[textName]
+                    t?.let { return t }
+
+                    t = Token(Token.TK_IDENTIFIER, textName)
+                    putInSymbolTable(t)
+                    return t
                 }
 
                 3 -> {
                     if (isDigit(currentChar)) {
                         state = 3
                         textName += currentChar
-                    } else if (!isTerm(currentChar)) {
+                    } else if(isDot(currentChar)) {
+                        state = 3
+                        textName += currentChar
+                    }else if (!isTerm(currentChar)) {
                         state = 4
                     } else {
                         throw RuntimeException("Unrecognized Number")
@@ -120,10 +161,12 @@ class Lexico(fileName: String) {
                 }
 
                 5 -> {
-                    return Token(
-                        Token.TK_ARIT_OPERATOR,
-                        textName
-                    )
+                    if (isEqualSimbol(currentChar)) {
+                        state = 17
+                        textName += currentChar
+                    } else {
+                        state = 15
+                    }
                 }
 
                 6 -> {
@@ -134,7 +177,7 @@ class Lexico(fileName: String) {
                 }
 
                 7 -> {
-                    if (isOpenPar(currentChar)){
+                    if (isOpenPar(currentChar)) {
                         state = 7
                         textName += currentChar
                     } else {
@@ -151,7 +194,7 @@ class Lexico(fileName: String) {
                 }
 
                 9 -> {
-                    if (isClosePar(currentChar)){
+                    if (isClosePar(currentChar)) {
                         state = 9
                         textName += currentChar
                     } else {
@@ -168,12 +211,22 @@ class Lexico(fileName: String) {
                 }
 
                 11 -> {
-                    if(isRelationalOperator(currentChar)){
+                    if(isEqualSimbol(currentChar)){
+                        state = 17
+                        textName += currentChar
+                    } else{
+                        state = 14
+                    }
+                    /*if (isEqualSimbol(currentChar)) {
+                        state = 14
+                        textName += currentChar
+                    } else if (isRelationalOperator(currentChar)) {
                         state = 12
                         textName += currentChar
-                    }else {
+                    } else {
                         state = 12
-                    }
+                    }*/
+
                 }
 
                 12 -> {
@@ -192,6 +245,96 @@ class Lexico(fileName: String) {
                     )
                 }
 
+                14 -> {
+                    backToPreviousChar()
+                    return Token(
+                        Token.TK_ASSIGNMENT,
+                        textName
+                    )
+                }
+
+                15 -> {
+                    backToPreviousChar()
+                    return Token(
+                        Token.TK_RELAC_OPERATOR,
+                        textName
+                    )
+                }
+
+                16 -> {
+                    if (isEqualSimbol(currentChar)) {
+                        state = 17
+                        textName += currentChar
+                    } else if(isBigger(currentChar)) {
+                        state = 17
+                        textName += currentChar
+                    } else {
+                        state = 15
+                    }
+                }
+
+                17 -> {
+                    return Token(
+                        Token.TK_RELAC_OPERATOR,
+                        textName
+                    )
+                }
+
+                18 -> {
+                    if(isAndOperator(currentChar)){
+                        state = 13
+                        textName += currentChar
+                    }else{
+                        //LEXICAL ERROR
+                    }
+                }
+
+                19 -> {
+                    if(isOrOperator(currentChar)){
+                        state = 13
+                        textName += currentChar
+                    }else{
+                        state = 22
+                        textName += currentChar
+                    }
+                }
+
+                20 -> {
+                    if(isDigit(currentChar)){
+                        state = 3
+                        textName += currentChar
+                    }else{
+                        state = 22
+                        //textName += currentChar
+                    }
+                }
+
+                21 -> {
+                    if(isDigit(currentChar)){
+                        state = 3
+                        textName += currentChar
+                    }else{
+                        state = 22
+                        //LEXICAL ERROR
+                    }
+                }
+
+                22 -> {
+                    backToPreviousChar()
+                    return Token(
+                        Token.TK_ARIT_OPERATOR,
+                        textName
+                    )
+                }
+
+                23 -> {
+                    //backToPreviousChar()
+                    return Token(
+                        Token.TK_ARIT_OPERATOR,
+                        textName
+                    )
+                }
+
             }
 
             position++
@@ -200,18 +343,42 @@ class Lexico(fileName: String) {
         return null
     }
 
+    //private fun isRelationalOperator(c: Char): Boolean = c == '>' || c == '<' || c == '='
+    //
+    //private fun isLogicOperator(c: Char): Boolean = c == '&' || c == '|'
+
     private fun isDigit(c: Char): Boolean = c in '0'..'9'
     private fun isTerm(c: Char): Boolean = (c in 'a'..'z') || (c in 'A'..'Z')
     private fun isSpace(c: Char): Boolean = c == ' ' || c == '\t' || c == '\n' || c == '\r'
-    private fun isRelationalOperator(c: Char): Boolean = c == '>' || c == '<' || c == '='
-    private fun isArithmeticOperator(c: Char): Boolean = c == '+' || c == '-' || c == '*' || c == '/' || c == '^'
-    private fun isLogicOperator(c: Char): Boolean = c == '&' || c == '|'
+
+    private fun isBigger(c: Char): Boolean = c == '>'
+    private fun isLess(c: Char): Boolean = c == '<'
+
+    private fun isPlusOperator(c: Char): Boolean = c == '+'
+    private fun isSubOperator(c: Char): Boolean = c == '-'
+    private fun isArithmeticOperator(c: Char): Boolean = c == '*' || c == '/' || c == '^'
+
+    private fun isAndOperator(c: Char): Boolean = c == '&'
+    private fun isOrOperator(c: Char): Boolean = c == '|'
+
     private fun isUnaryOperator(c: Char): Boolean = c == '¬'
     private fun isOpenPar(c: Char): Boolean = c == '('
     private fun isClosePar(c: Char): Boolean = c == ')'
+    private fun isEqualSimbol(c: Char): Boolean = c == '='
+
+    private fun isDot(c: Char): Boolean = c == '.'
 
     private fun getNextChar(): Char = content!![position]
     private fun isEndOfFile(): Boolean = position == content!!.size
     private fun backToPreviousChar() = position--
+
+
+    private fun putInSymbolTable(t: Token) {
+        symbolTable[t.getText()] = t
+    }
+
+    private fun reserve(t: Token) {
+        reserveTable[t.getText()] = t
+    }
 
 }
