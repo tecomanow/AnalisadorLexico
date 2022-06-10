@@ -122,6 +122,8 @@ class Lexico(fileName: String) {
                         || isEqualSimbol(currentChar)
                     ) {
                         state = 2
+                    } else {
+                        throw RuntimeException("Unrecognized symbol")
                     }
                 }
 
@@ -145,10 +147,22 @@ class Lexico(fileName: String) {
                     } else if(isDot(currentChar)) {
                         state = 3
                         textName += currentChar
-                    }else if (!isTerm(currentChar)) {
+                    } else if (isSpace(currentChar)
+                        || isBigger(currentChar)
+                        || isLess(currentChar)
+                        || isPlusOperator(currentChar)
+                        || isSubOperator(currentChar)
+                        || isAndOperator(currentChar)
+                        || isOrOperator(currentChar)
+                        || isUnaryOperator(currentChar)
+                        || isOpenPar(currentChar)
+                        || isClosePar(currentChar)
+                        || isArithmeticOperator(currentChar)
+                        || isEqualSimbol(currentChar)
+                    ) {
                         state = 4
                     } else {
-                        throw RuntimeException("Unrecognized Number")
+                        throw RuntimeException("Token not allowed")
                     }
                 }
 

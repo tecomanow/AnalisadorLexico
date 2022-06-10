@@ -5,4 +5,8 @@ a = b
 a==b
 a <> b
 A<>b
+log()
+a^0.5
+ab123ab
+
 
